@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 """credit_card_fraud_detection.py"""
 
-# Import necessary packages
 import subprocess
 import sys
 
 def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
-# Uncomment the following lines if running for the first time
+# Uncomment to install packages if running for the first time
 # install('streamlit')
-# install('pyngrok')
 # install('matplotlib')
 # install('seaborn')
 
