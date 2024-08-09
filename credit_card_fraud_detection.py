@@ -1,13 +1,11 @@
-import numpy as np
+import streamlit as st
 import pandas as pd
-import seaborn as sns
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, confusion_matrix, roc_curve, roc_auc_score, classification_report
-from sklearn.ensemble import IsolationForest
+from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, roc_curve, roc_auc_score
 import shap
-import pickle
-import streamlit as st
+import io
 
 # Load the dataset
 @st.cache_data
@@ -20,14 +18,17 @@ data = load_data()
 # Title and description
 st.title('Credit Card Fraud Detection')
 st.markdown("""
-This application demonstrates a machine learning model for detecting credit card fraud using logistic regression and anomaly detection with Isolation Forest. 
-The dataset contains transactions made by credit cards in September 2013 by European cardholders. The dataset is highly imbalanced, with the positive class (frauds) accounting for 0.172% of all transactions.
+This application demonstrates a machine learning model for detecting credit card fraud using logistic regression.
+The dataset contains transactions made by European cardholders in September 2013. The dataset is highly imbalanced, with the positive class (frauds) accounting for only 0.172% of all transactions.
 """)
 
 # Data overview
 if st.checkbox('Show Data Overview'):
     st.write("**Dataset Information:**")
-    st.write(data.describe())
+    buffer = io.StringIO()
+    data.info(buf=buffer)
+    s = buffer.getvalue()
+    st.text(s)
     st.write("**Class Distribution:**")
     st.write(data['Class'].value_counts())
 
@@ -38,19 +39,6 @@ amount_min, amount_max = st.sidebar.slider("Select Amount Range", float(data['Am
 
 filtered_data = data[(data['Time'] >= time_min) & (data['Time'] <= time_max) & 
                      (data['Amount'] >= amount_min) & (data['Amount'] <= amount_max)]
-
-# Data distribution
-def plot_data_distribution(data):
-    st.write("**Distribution of Transactions Before Sampling:**")
-    sns.countplot(x='Class', data=data)
-    st.pyplot()
-
-    st.write("**Distribution of Transaction Amounts:**")
-    sns.histplot(data=data[data['Class'] == 0], x='Amount', bins=50, color='blue', label='Legit', alpha=0.6)
-    sns.histplot(data=data[data['Class'] == 1], x='Amount', bins=50, color='red', label='Fraud', alpha=0.6)
-    st.pyplot()
-
-plot_data_distribution(filtered_data)
 
 # Sample the data
 def sample_data(data, sample_size=492):
@@ -86,50 +74,42 @@ st.write(f"- **ROC AUC Score:** {roc_auc:.2f}")
 # Confusion Matrix
 def plot_confusion_matrix(Y_test, X_test_prediction):
     st.markdown("### Confusion Matrix")
-    st.write("This matrix shows the number of correct and incorrect predictions made by the model.")
     cm = confusion_matrix(Y_test, X_test_prediction)
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=['Legit', 'Fraud'], yticklabels=['Legit', 'Fraud'])
-    st.pyplot()
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Legit', 'Fraud'])
+    fig, ax = plt.subplots(figsize=(8, 6))
+    disp.plot(cmap='Blues', values_format='d', ax=ax)
+    st.pyplot(fig)
 
 plot_confusion_matrix(Y_test, X_test_prediction)
 
 # ROC Curve
 def plot_roc_curve():
     st.markdown("### ROC Curve")
-    st.write("The ROC curve illustrates the true positive rate (recall) against the false positive rate, showing the trade-off between sensitivity and specificity.")
     fpr, tpr, _ = roc_curve(Y_test, model.predict_proba(X_test)[:, 1])
-    sns.lineplot(x=fpr, y=tpr, label=f'ROC curve (area = {roc_auc:.2f})')
-    sns.lineplot(x=[0, 1], y=[0, 1], color='gray', linestyle='--')
-    st.pyplot()
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.plot(fpr, tpr, color='blue', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+    ax.plot([0, 1], [0, 1], color='gray', linestyle='--')
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel('False Positive Rate')
+    ax.set_ylabel('True Positive Rate')
+    ax.set_title('Receiver Operating Characteristic (ROC) Curve')
+    ax.legend(loc='lower right')
+    st.pyplot(fig)
 
 plot_roc_curve()
 
 # Feature Importance with SHAP
 def plot_shap_values():
     st.markdown("### Feature Importance with SHAP")
-    st.write("This plot shows the impact of each feature on the prediction made by the model using SHAP values.")
-    
     explainer = shap.LinearExplainer(model, X_train)
     shap_values = explainer.shap_values(X_train)
     
+    fig, ax = plt.subplots(figsize=(12, 8))
     shap.summary_plot(shap_values, X_train, plot_type="bar", show=False)
-    st.pyplot()
+    st.pyplot(fig)
 
 plot_shap_values()
-
-# Anomaly Detection with Isolation Forest
-def plot_anomaly_detection():
-    st.markdown("### Anomaly Detection with Isolation Forest")
-    st.write("This plot shows the anomaly scores given by the Isolation Forest model for the transactions.")
-    
-    iso_forest = IsolationForest(contamination=0.01, random_state=42)
-    data['Anomaly_Score'] = iso_forest.fit_predict(data.drop(columns=['Class']))
-    
-    sns.histplot(data=data[data['Anomaly_Score'] == -1], x='Amount', bins=50, color='red', label='Anomaly', alpha=0.6)
-    sns.histplot(data=data[data['Anomaly_Score'] == 1], x='Amount', bins=50, color='blue', label='Normal', alpha=0.6)
-    st.pyplot()
-
-plot_anomaly_detection()
 
 # Save and load model
 def save_model(model):
@@ -146,5 +126,4 @@ model_loaded = load_model()
 
 # Predictions with loaded model
 st.markdown("### Predictions with Loaded Model")
-st.write("Here are predictions made by the loaded model on the training data:")
 st.write(model_loaded.predict(X_train))
