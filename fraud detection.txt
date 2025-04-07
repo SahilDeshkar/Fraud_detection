@@ -1,0 +1,14 @@
+# Credit Card Fraud Detection
+
+A machine learning web application that detects potentially fraudulent credit card transactions using logistic regression. Built with Streamlit, this interactive tool provides real-time analysis and visualization of transaction data to identify suspicious activities.
+
+## Features
+
+- **Data Visualization**: Interactive charts and graphs to explore transaction data
+- **Model Training**: Train a logistic regression model with customizable parameters
+- **Performance Metrics**: View accuracy, ROC curves, and confusion matrices
+- **SHAP Explainability**: Understand why transactions are flagged as fraudulent
+- **Real-time Prediction**: Test new transactions against the trained model
+
+## Project Structure
+
